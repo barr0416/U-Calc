@@ -1,26 +1,35 @@
 ﻿using UnityEngine;
 using UnityEngine.UI;
 using System.Collections;
+using System;
 
 public class Calculator : MonoBehaviour {
 
 	//For displaying the current value
 	public Text m_CalculatorDisplay;
 
+	//For displaying the calculation
+	public Text m_CalculationDisplay;
+
 	//Display for the current number
 	private string currentNumber = "0";
 	//The max number of digits allowed
-	private int maxAllowedDigits = 10;
+	private int maxAllowedDigits = 12;
 	//Is the value first in
 	private bool isFirst = true;
 	//Should the screen be cleared
 	private bool clearScreen = false;
-	//What operation is being performed
-	private string currentOperation = "";
 	//The number of registers for performing calulations against eachother
 	private float[] operationRegs = new float[2];
 
-	private string nullNumberIdentifier = "null";
+	private bool clearAfterPress = false;
+
+	/// <summary>
+	/// Start this instance.
+	/// </summary>
+	void Start() {
+		this.ClearCalculator();
+	}
 
 	/// <summary>
 	/// Clears the calculator.
@@ -29,51 +38,27 @@ public class Calculator : MonoBehaviour {
 		isFirst = true;
 		clearScreen = true;
 		currentNumber = "0";
+
+		for(int i = 0; i < operationRegs.Length; i++) {
+			operationRegs[i] = 0;
+		}
+
+		m_CalculationDisplay.text = "";
+
 		this.UpdateCalculatorDisplay();
 	}
 
 	/// <summary>
-	/// Performs the operation.
+	/// Gets the calculator input.
 	/// </summary>
-	public void PerformOperation() {
-		switch(currentOperation) {
-		case "+":
-			if(currentNumber != nullNumberIdentifier) {
-				currentNumber = (operationRegs[0] + operationRegs[1]).ToString();
-			}
-			break;
-		case "-":
-			if(currentNumber != nullNumberIdentifier) {
-				currentNumber = (operationRegs[0] - operationRegs[1]).ToString();
-			}
-			break;
-		case "x":
-			if(currentNumber != nullNumberIdentifier) {
-				currentNumber = (operationRegs[0] * operationRegs[1]).ToString();
-			}
-			break;
-		case "/":
-			if(currentNumber != nullNumberIdentifier) {
-				//Check to ensure we are not trying to divide by zero before dividing
-				currentNumber = (operationRegs[1] != 0) ? (operationRegs[0] / operationRegs[1]).ToString() : nullNumberIdentifier;
-			}
-			break;
-		case "":
-			break;
-		default:
-			Debug.LogError("Invalid or unknown operation: " + currentOperation);
-			currentNumber = nullNumberIdentifier;
-			break;
-		}
-		isFirst = true;
-		clearScreen = true;
-		//Store the current number at the first position
-		StoreCurrentNumber(0);
-
-		this.UpdateCalculatorDisplay();
-	}
-
+	/// <param name="calcInput">Calculate input.</param>
 	public void GetCalculatorInput(string calcInput) {
+
+		if(clearAfterPress) {
+			this.ClearCalculator();
+			clearAfterPress = false;
+		}
+
 		switch(calcInput) {
 		case "0":
 			this.AppendNumber(calcInput);
@@ -107,41 +92,88 @@ public class Calculator : MonoBehaviour {
 			break;
 		case "C":
 			this.ClearCalculator();
+			this.AppendNumber("0");
 			break;
 		case ".":
 			if(!currentNumber.Contains(".") || clearScreen) {
 				this.AppendNumber(calcInput);
 			}
 			break;
+		case "(":
+			this.AppendNumber("(");
+			break;
+		case ")":
+			this.AppendNumber(")");
+			break;
 		case "+":
-			this.OperationChosen(calcInput);
+			this.AppendNumber("+");
 			break;
 		case "-":
-			this.OperationChosen(calcInput);
+			this.AppendNumber("-");
 			break;
 		case "x":
-			this.OperationChosen(calcInput);
+			this.AppendNumber("*");
 			break;
 		case "/":
-			this.OperationChosen(calcInput);
+			this.AppendNumber("/");
 			break;
 		case "enter":
-			this.PerformOperation();
+			this.CalculateResult();
 			break;
 		}
 	}
 
+	/// <summary>
+	/// Calculates the result.
+	/// </summary>
+	public void CalculateResult() {
+		m_CalculationDisplay.text = currentNumber;
+		
+		currentNumber = "" + this.Evaluate(currentNumber);
+		this.UpdateCalculatorDisplay();
+
+		clearAfterPress = true;
+	}
+	
+	/// <summary>
+	/// Evaluate the specified expression.
+	/// </summary>
+	/// <param name="expression">Expression.</param>
+	public double Evaluate(string expression)
+	{
+		var doc = new System.Xml.XPath.XPathDocument(new System.IO.StringReader("<r/>"));
+		var nav = doc.CreateNavigator();
+		var newString = expression;
+		newString = (new System.Text.RegularExpressions.Regex(@"([\+\-\*])")).Replace(newString, " ${1} ");
+		newString = newString.Replace("/", " div ").Replace("%", " mod ");
+		
+		double result = (double)nav.Evaluate("number(" + newString + ")");
+		
+		return result;
+	} 
+
+	/// <summary>
+	/// Stores the current number.
+	/// </summary>
+	/// <param name="number">Number.</param>
 	private void StoreCurrentNumber(int number) {
 		operationRegs[number] = float.Parse(currentNumber);
 	}
 
+	/// <summary>
+	/// Operations the chosen.
+	/// </summary>
+	/// <param name="aOperator">A operator.</param>
 	private void OperationChosen(string aOperator) {
 		StoreCurrentNumber(0);
 		isFirst = false;
 		clearScreen = true;
-		currentOperation = aOperator;
 	}
 
+	/// <summary>
+	/// Appends the number.
+	/// </summary>
+	/// <param name="numString">Number string.</param>
 	private void AppendNumber(string numString) {
 		if((currentNumber == "0") || clearScreen) {
 			currentNumber = (numString == ".") ? "0." : numString;
@@ -161,8 +193,10 @@ public class Calculator : MonoBehaviour {
 		StoreCurrentNumber(isFirst ? 0 : 1);
 	}
 
+	/// <summary>
+	/// Updates the calculator display.
+	/// </summary>
 	private void UpdateCalculatorDisplay() {
 		m_CalculatorDisplay.text = currentNumber;
 	}
-
 }
